@@ -14,13 +14,47 @@ A Scala-based implementation of Reversi (Othello) featuring a Minimax AI with Al
 - Scala Version: 2.13
 - SBT Version: 1.10.11
 
+### Installing SBT on Windows
+
+If you don't have SBT installed, follow these steps:
+
+1. **Download SBT:**
+   - Visit: https://github.com/sbt/sbt/releases/download/v1.10.11/sbt-1.10.11.zip
+   - Or go to [SBT GitHub Releases](https://github.com/sbt/sbt/releases) and download the latest version
+
+2. **Extract the ZIP file:**
+   - Right-click the downloaded file → **Extract All**
+   - Extract to a permanent location (e.g., `C:\sbt` or `C:\Program Files\sbt`)
+
+3. **Add SBT to your PATH:**
+   - Press **Win + X** → **System** (or right-click **This PC** → **Properties**)
+   - Click **Advanced system settings** (or **System info** → **Advanced system settings**)
+   - Click **Environment Variables** button
+   - Under **System variables**, click **New**
+   - Variable name: `Path`
+   - Variable value: `C:\sbt\bin` (adjust path if you extracted to a different location)
+   - Click **OK** three times
+
+4. **Verify installation:**
+   - Open a new PowerShell window
+   - Run:
+     ```powershell
+     sbt --version
+     ```
+   - You should see the SBT version output (e.g., `sbt version 1.10.11`)
+
 ### Local Development (SBT)
 
 To build and run the project locally:
 
+**On macOS/Linux/PowerShell:**
 ```bash
-sbt compile &&
-sbt run
+sbt compile; sbt run
+```
+
+**On Windows Command Prompt:**
+```cmd
+sbt compile && sbt run
 ```
 
 The application will be available at `http://localhost:9000`
