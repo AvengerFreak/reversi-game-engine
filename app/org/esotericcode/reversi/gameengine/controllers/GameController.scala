@@ -6,6 +6,7 @@ import play.api.libs.json.Format.GenericFormat
 import play.api.libs.json.{JsValue, Json, Writes}
 import play.api.mvc.{Action, _}
 import org.esotericcode.reversi.gameengine.service.GameService
+import org.esotericcode.reversi.gameengine.security.ApiKeyAction
 import play.api.libs.json.JsPath.\
 import play.api.libs.json.OFormat.oFormatFromReadsAndOWrites
 
@@ -13,10 +14,14 @@ import scala.concurrent.ExecutionContext
 import scala.util.Random
 
 @Singleton
-class GameController @Inject()(cc: ControllerComponents, gameService: GameService)(implicit ec: ExecutionContext)
+class GameController @Inject()(
+  cc: ControllerComponents,
+  gameService: GameService,
+  apiKeyAction: ApiKeyAction
+)(implicit ec: ExecutionContext)
   extends AbstractController(cc) {
 
-  def createSample: Action[AnyContent] = Action.async {
+  def createSample: Action[AnyContent] = apiKeyAction.async {
     val sampleBoard = GameBoard(1L, ImmutableReversiBoard.getEmptyBoard.gameBoard,
       "X", "","O", isAIEnabled = true)
     gameService.insertGameBoard(sampleBoard).map { _ =>
@@ -24,7 +29,7 @@ class GameController @Inject()(cc: ControllerComponents, gameService: GameServic
     }
   }
 
-  def newGame: Action[AnyContent] = Action.async {
+  def newGame: Action[AnyContent] = apiKeyAction.async {
     val sampleBoard = GameBoard(Random.nextLong(), ImmutableReversiBoard.getEmptyBoard.gameBoard,
       "X", "","O", isAIEnabled = true)
     gameService.insertGameBoard(sampleBoard).map { _ =>
@@ -32,33 +37,33 @@ class GameController @Inject()(cc: ControllerComponents, gameService: GameServic
     }
   }
 
-  def getSample: Action[AnyContent] = Action.async {
+  def getSample: Action[AnyContent] = apiKeyAction.async {
     gameService.getBoard(1L).map {
       case Some(board) => Ok(s"Got board: $board")
       case None => NotFound("No board found")
     }
   }
 
-  def getBoard(gameId: Long): Action[AnyContent] = Action.async {
+  def getBoard(gameId: Long): Action[AnyContent] = apiKeyAction.async {
     gameService.getBoard(gameId).map {
       case Some(board) => Ok(Json.toJson(board))
       case None => NotFound("Game not found")
     }
   }
 
-  def getValidMoves(gameId: Long, player: String): Action[AnyContent] = Action.async {
+  def getValidMoves(gameId: Long, player: String): Action[AnyContent] = apiKeyAction.async {
     gameService.getValidMoves(gameId, player).map { moves =>
       Ok(Json.toJson(moves))
     }
   }
 
-  def isValidMove(gameId: Long, player: String, move: String): Action[AnyContent] = Action.async {
+  def isValidMove(gameId: Long, player: String, move: String): Action[AnyContent] = apiKeyAction.async {
     gameService.isValidMove(gameId, player, move).map { isValid =>
       Ok(Json.obj("valid" -> isValid))
     }
   }
 
-  def makeMove(gameId: Long): Action[JsValue] = Action.async(parse.json) { request =>
+  def makeMove(gameId: Long): Action[JsValue] = apiKeyAction.async(parse.json) { request =>
     val player = (request.body \ "player").as[String]
     val move = (request.body \ "move").as[String]
     println(s"Received move: $move by $player for game $gameId")
@@ -73,14 +78,14 @@ class GameController @Inject()(cc: ControllerComponents, gameService: GameServic
     }
   }
 
-  def getAIMove(gameId: Long, player: String): Action[AnyContent] = Action.async {
+  def getAIMove(gameId: Long, player: String): Action[AnyContent] = apiKeyAction.async {
     gameService.getAIMove(gameId, player).map {
       case Some(result) => Ok(Json.toJson(result))
       case None => NotFound(Json.obj("error" -> "No valid AI move found"))
     }
   }
 
-  def makeAIMove(gameId: Long): Action[JsValue] = Action.async(parse.json) { request =>
+  def makeAIMove(gameId: Long): Action[JsValue] = apiKeyAction.async(parse.json) { request =>
     val player = (request.body \ "ai-player").as[String]
 
     gameService.makeAIMove(gameId, player).map {
