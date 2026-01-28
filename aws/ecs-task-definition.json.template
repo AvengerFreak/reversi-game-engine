@@ -1,0 +1,44 @@
+{
+  "family": "<REPO>",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "<REPO>",
+      "image": "<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/<REPO>:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": <PLAY_HTTP_PORT>,
+          "hostPort": <PLAY_HTTP_PORT>,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "JAVA_OPTS",
+          "value": "-Dplay.server.provider=play.core.server.NettyServerProvider -Xmx256m"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/<REPO>",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f <API_BASE_URL>:<PLAY_HTTP_PORT>/health || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 40
+      }
+    }
+  ],
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/ecsTaskRole"
+}

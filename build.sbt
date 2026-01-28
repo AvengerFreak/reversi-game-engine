@@ -53,13 +53,3 @@ dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
 // Scala compiler options
 scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked")
 javacOptions ++= Seq("--release", "11")
-
-// --- sbt-assembly config ---
-import sbtassembly.AssemblyPlugin.autoImport._
-assembly / assemblyJarName := "reversi-game-engine.jar"
-assembly / mainClass := Some("org.esotericcode.reversi.gameengine.CommandLineGame")
-assembly / assemblyMergeStrategy := {
-  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-  case "reference.conf"              => MergeStrategy.concat
-  case x                             => MergeStrategy.first
-}

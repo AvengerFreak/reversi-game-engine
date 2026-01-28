@@ -1,0 +1,105 @@
+name: Build and Push Docker Image to AWS ECR
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - master
+      - dev
+
+env:
+  AWS_REGION: us-east-1 # default region 
+  ECR_REPOSITORY_NAME: ${{ github.event.repository.name }}
+  IMAGE_TAG: ${{ github.sha }}
+  GITHUB_ACTIONS_ROLE_NAME: GitHubActionsDeployRole
+  PLAY_HTTP_PORT: 9000
+  API_BASE_URL: http://localhost:9000
+  CORS_ORIGINS: '"http://localhost:3000", "http://localhost:9000"'
+  DB_PROFILE: 'slick.jdbc.H2Profile$'
+  DB_DRIVER: 'org.h2.Driver'
+  DB_URL: ${{ secrets.DB_URL }}
+  DB_USER: ${{ secrets.DB_USERNAME }}
+  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/master' && 'prod' || 'nonprod' }}
+    
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build AWS Role ARN
+        id: build-arn
+        run: echo "role-arn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.GITHUB_ACTIONS_ROLE_NAME }}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.build-arn.outputs.role-arn }}
+          role-session-name: GitHubActionsSession
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR Repository (if needed)
+        run: |
+          bash aws/setup-aws-infrastructure.sh ${{ env.ECR_REPOSITORY_NAME }} ${{ env.AWS_REGION }} ${{ env.PLAY_HTTP_PORT }}
+
+      - name: Generate application.conf from template
+        run: |
+          sed -e 's/secret-key/${{ secrets.API_KEY }}/g' \
+              -e 's|<CORS_ORIGINS>|${{ env.CORS_ORIGINS }}|g' \
+              -e 's|<DB_PROFILE>|${{ env.DB_PROFILE }}|g' \
+              -e 's|<DB_DRIVER>|${{ env.DB_DRIVER }}|g' \
+              -e 's|<DB_URL>|${{ env.DB_URL }}|g' \
+              -e 's|<DB_USER>|${{ env.DB_USER }}|g' \
+              -e 's|<DB_PASSWORD>|${{ env.DB_PASSWORD }}|g' \
+              conf/application.conf.template > conf/application.conf
+          echo "✅ application.conf generated with API_KEY, CORS_ORIGINS, and DB config"
+          cat conf/application.conf
+
+      - name: Build Docker image (with tests)
+        run: |
+          echo "Building Docker image with test execution..."
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }} .
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }} ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:latest
+          echo "✅ All tests passed during build!"
+
+      - name: Push image to Amazon ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:latest
+
+      - name: Output image URI
+        run: echo "Image pushed to ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}"
+
+      - name: Generate ECS Task Definition from template
+        run: |
+          # Create task definition from template with all placeholders
+          sed -e 's/<AWS_ACCOUNT_ID>/${{ secrets.AWS_ACCOUNT_ID }}/g' \
+              -e 's/<REPO>/${{ env.ECR_REPOSITORY_NAME }}/g' \
+              -e 's/<AWS_REGION>/${{ env.AWS_REGION }}/g' \
+              -e 's/<PLAY_HTTP_PORT>/${{ env.PLAY_HTTP_PORT }}/g' \
+              -e 's|<API_BASE_URL>|${{ env.API_BASE_URL }}|g' \
+              aws/ecs-task-definition.json.template > aws/ecs-task-definition.json
+          echo "✅ Task definition generated with all configuration values"
+          cat aws/ecs-task-definition.json
+
+      - name: Register ECS Task Definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://aws/ecs-task-definition.json \
+            --region ${{ env.AWS_REGION }}

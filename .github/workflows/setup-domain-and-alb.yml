@@ -1,0 +1,65 @@
+name: Setup Domain and ALB
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain_name:
+        description: 'Domain name (e.g., reversi.example.com)'
+        required: true
+        type: string
+      repo_name:
+        description: 'Repository name for ECS service'
+        required: false
+        default: 'reversi-game-engine'
+        type: string
+      aws_region:
+        description: 'AWS region'
+        required: false
+        default: 'us-east-1'
+        type: string
+
+env:
+  AWS_REGION: ${{ inputs.aws_region }}
+  GITHUB_ACTIONS_ROLE_NAME: GitHubActionsDeployRole
+
+jobs:
+  setup-domain-and-alb:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build AWS Role ARN
+        id: build-arn
+        run: echo "role-arn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.GITHUB_ACTIONS_ROLE_NAME }}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.build-arn.outputs.role-arn }}
+          role-session-name: GitHubActionsSession
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Domain and ALB
+        run: |
+          echo "Setting up domain and ALB..."
+          echo "  - Domain: ${{ inputs.domain_name }}"
+          echo "  - Repo: ${{ inputs.repo_name }}"
+          echo "  - Region: ${{ env.AWS_REGION }}"
+          bash aws/setup-domain-and-alb.sh ${{ inputs.domain_name }} ${{ inputs.repo_name }} ${{ env.AWS_REGION }}
+          echo "✅ Domain and ALB setup complete!"
+
+      - name: Output Summary
+        run: |
+          echo "Setup Complete!"
+          echo ""
+          echo "Next steps:"
+          echo "1. Wait for ACM certificate validation (check your domain email)"
+          echo "2. Update your domain's nameservers to point to Route53"
+          echo "3. Verify DNS propagation: nslookup www.${{ inputs.domain_name }}"
+          echo "4. Access your API at: https://${{ inputs.domain_name }}"
