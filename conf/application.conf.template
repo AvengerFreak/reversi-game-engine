@@ -1,10 +1,20 @@
-slick.dbs.default.profile = "slick.jdbc.H2Profile$"
-slick.dbs.default.db.driver = "org.h2.Driver"
-slick.dbs.default.db.url = "jdbc:h2:mem:play;DB_CLOSE_DELAY=-1"
-slick.dbs.default.db.user = "sa"
-slick.dbs.default.db.password = "password"
+slick.dbs.default.profile = "<DB_PROFILE>"
+slick.dbs.default.db.driver = "<DB_DRIVER>"
+slick.dbs.default.db.url = "<DB_URL>"
+slick.dbs.default.db.user = "<DB_USER>"
+slick.dbs.default.db.password = "<DB_PASSWORD>"
 play.evolutions.enabled = true
 play.evolutions.autoApply = true
 play.evolutions.db.default.enabled = true
 db.default.logSql = true
-api.key = "reversi-game-engine-v1-secret-key"
+# API Security Configuration
+api.key = "secret-key"  # Replaced by workflow with API_KEY secret
+
+# CORS Configuration for React Frontend
+play.filters.enabled += "play.filters.cors.CORSFilter"
+play.filters.cors {
+  pathPrefixes = ["/"]
+  allowedOrigins = [<CORS_ORIGINS>]
+  allowedHttpMethods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  allowedHttpHeaders = ["Accept", "Content-Type", "Authorization", "x-api-key"]
+}
