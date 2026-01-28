@@ -16,7 +16,7 @@ env:
   AWS_REGION: us-east-1 # default region 
   ECR_REPOSITORY_NAME: ${{ github.event.repository.name }}
   IMAGE_TAG: ${{ github.sha }}
-  GITHUB_ACTIONS_ROLE_NAME: ContributerDeploy #GitHubActionsDeployRole
+  GITHUB_ACTIONS_ROLE_NAME: GitHubActionsDeployRole
   PLAY_HTTP_PORT: 9000
   API_BASE_URL: http://localhost:9000
   CORS_ORIGINS: '"http://localhost:3000", "http://localhost:9000"'
